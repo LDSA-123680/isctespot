@@ -1,9 +1,10 @@
 import os
-from flask import Flask, Blueprint, request, jsonify, current_app, abort, send_file
+from flask import Blueprint, request, jsonify, abort, send_file
 from db.db_connector import DBConnector
 from services.process_file import ProcessFile
 from services.process_cash_flow import ProcessCashFlow
 from services.process_sales     import ProcessSales
+from api.auth.jwt_utils import validate_token
 
 company = Blueprint('company', __name__)
 
@@ -12,12 +13,13 @@ def list_clients():
     ''' List Sales function'''
     dbc = DBConnector()
     dict_data = request.get_json()
-    if dict_data['token'] != current_app.config['ADMIN_AUTH_TOKEN']:
+    is_valid, payload = validate_token(dict_data.get('token'))
+    if not is_valid or not payload.get('is_admin'):
         return jsonify({'status': 'Unauthorised'}), 403
-    results = dbc.execute_query(query='get_company_sales', args=dict_data['comp_id'])
-    pcf = ProcessCashFlow(dict_data['comp_id'], 'PT', month=7) ### in this case we don't cate about the month, let's give one value just to simplify
+    results = dbc.execute_query(query='get_company_sales', args=payload['comp_id'])
+    pcf = ProcessCashFlow(payload['comp_id'], 'PT', month=7) ### in this case we don't cate about the month, let's give one value just to simplify
     revenue = pcf.revenue
-    ps = ProcessSales(results, dict_data['user_id'])
+    ps = ProcessSales(results, payload['user_id'])
     ps.get_3_most_recent_sales()
     if isinstance(results, list):
         return jsonify({'status': 'Ok', 'last_3_sales': ps.last_3_sales, 'revenue': revenue, 'sales': results}), 200
@@ -28,9 +30,10 @@ def list_employees():
     ''' List employees function'''
     dbc = DBConnector()
     dict_data = request.get_json()
-    if dict_data['token'] != current_app.config['ADMIN_AUTH_TOKEN']:
+    is_valid, payload = validate_token(dict_data.get('token'))
+    if not is_valid or not payload.get('is_admin'):
         return jsonify({'status': 'Unauthorised'}), 403
-    results = dbc.execute_query(query='get_employees_list', args=dict_data['comp_id'])
+    results = dbc.execute_query(query='get_employees_list', args=payload['comp_id'])
     if isinstance(results, list):
         return jsonify({'status': 'Ok', 'employees': results}), 200
     return jsonify({'status': 'Bad request'}), 403
@@ -40,9 +43,10 @@ def list_products():
     ''' List products for given company '''
     dbc = DBConnector()
     dict_data = request.get_json()
-    if dict_data['token'] != current_app.config['ADMIN_AUTH_TOKEN'] and dict_data['token'] != current_app.config['AUTH_TOKEN']:
+    is_valid, _payload = validate_token(dict_data.get('token'))
+    if not is_valid:
         return jsonify({'status': 'Unauthorised'}), 403
-    results = dbc.execute_query(query='get_products_list', args=dict_data['comp_id'])
+    results = dbc.execute_query(query='get_products_list', args=_payload['comp_id'])
     if isinstance(results, list):
         return jsonify({'status': 'Ok', 'products': results}), 200
     return jsonify({'status': 'Bad request'}), 403
@@ -71,11 +75,11 @@ def update_commission():
     ''' Update seller commission '''
     dict_data = request.get_json()
     token = dict_data['token']
-    print(dict_data)
     seller_id = dict_data['seller_id']
     new_commission = dict_data['new_commission']
-    print(token + '======' + current_app.config['ADMIN_AUTH_TOKEN'])
-    if token != current_app.config['ADMIN_AUTH_TOKEN']:
+    # intentionally not comparing with static admin token anymore
+    is_valid, payload = validate_token(token)
+    if not is_valid or not payload.get('is_admin'):
         return jsonify({'status': 'Unauthorized'}), 403
     dbc = DBConnector()
     dbc.execute_query(query='update_seller_commission', args={'seller_id': seller_id, 'new_commission':new_commission})
@@ -85,9 +89,10 @@ def update_commission():
 def upload_excel():
     ''' Update company products from csv or xlsx '''
     token = request.form.get('token')
-    comp_id = request.form.get('comp_id')
-    if token != current_app.config['ADMIN_AUTH_TOKEN']:
+    is_valid, payload = validate_token(token)
+    if not is_valid or not payload.get('is_admin'):
         return jsonify({'status': 'Unauthorized'}), 403
+    comp_id = payload.get('comp_id')
     if 'file' not in request.files:
         return jsonify({'error': 'No file part in the request'}), 400
 
@@ -104,13 +109,14 @@ def upload_excel():
 def cash_flow():
     ''' Calculate compnay's cash flow '''
     dict_data = request.get_json()
-    if dict_data['token'] != current_app.config['ADMIN_AUTH_TOKEN']:
+    is_valid, payload = validate_token(dict_data.get('token'))
+    if not is_valid or not payload.get('is_admin'):
         return jsonify({'status': 'Unauthorised'}), 403
     
     #### To Simplify, we will only use 3 fixed months of sales ####
-    pcf7 = ProcessCashFlow(country_code=dict_data['country_code'], company_id=dict_data['comp_id'], month=7)
-    pcf8 = ProcessCashFlow(country_code=dict_data['country_code'], company_id=dict_data['comp_id'], month=8)
-    pcf9 = ProcessCashFlow(country_code=dict_data['country_code'], company_id=dict_data['comp_id'], month=9)
+    pcf7 = ProcessCashFlow(country_code=dict_data['country_code'], company_id=payload['comp_id'], month=7)
+    pcf8 = ProcessCashFlow(country_code=dict_data['country_code'], company_id=payload['comp_id'], month=8)
+    pcf9 = ProcessCashFlow(country_code=dict_data['country_code'], company_id=payload['comp_id'], month=9)
     #########################################################
     
     return jsonify(

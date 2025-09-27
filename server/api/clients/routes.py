@@ -1,6 +1,6 @@
-from flask import Flask, Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 from db.db_connector import DBConnector
-import json
+from api.auth.jwt_utils import validate_token
 
 clients = Blueprint('clients', __name__)
 
@@ -9,7 +9,11 @@ def list_clients():
     ''' List clients function'''
     dbc = DBConnector()
     dict_data = request.get_json()
-    comp_id = dbc.execute_query(query='get_compnay_id_by_user', args=dict_data['user_id'])
+    token = dict_data['token']
+    is_valid, payload = validate_token(token)
+    if not is_valid or not payload.get('is_admin'):
+        return jsonify({'status': 'Unauthorised'}), 403
+    comp_id = dbc.execute_query(query='get_compnay_id_by_user', args=payload['user_id'])
     results = dbc.execute_query(query='get_clients_list', args=comp_id)
     if isinstance(results, list):
         return jsonify({'status': 'Ok', 'clients': results}), 200
@@ -20,8 +24,13 @@ def new_client():
     ''' Create a new client '''
     dbc = DBConnector()
     dict_data = request.get_json()
+    token = dict_data['token']
+    is_valid, payload = validate_token(token)
+    if not is_valid:
+        return jsonify({'status': 'Unauthorised'}), 403
+    comp_id = payload['comp_id']
     result = dbc.execute_query('create_client', args={
-        'comp_id': dict_data['comp_id'],
+        'comp_id': comp_id,
         'first_name': dict_data['first_name'],
         'last_name': dict_data['last_name'],
         'email': dict_data['email'],
@@ -41,7 +50,8 @@ def delete_client():
     dbc = DBConnector()
     dict_data = request.get_json()
     token = dict_data['token']
-    if token != current_app.config["ADMIN_AUTH_TOKEN"]:
+    is_valid, payload = validate_token(token)
+    if not is_valid:
         return jsonify({'status': 'Unauthorised'}), 403
     result = dbc.execute_query(query='delete_client_by_id', args=dict_data['client_id'])
     if isinstance(result, int):

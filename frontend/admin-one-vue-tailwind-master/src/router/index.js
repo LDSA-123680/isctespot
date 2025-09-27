@@ -169,16 +169,50 @@ const router = createRouter({
   }
 })
 
+// Helper function to validate JWT token format
+function isValidJWT(token) {
+  if (!token) return false;
+  
+  // JWT has 3 parts separated by dots
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  
+  // Each part should be base64url encoded
+  try {
+    // Decode header to check if it's a valid JWT
+    const header = JSON.parse(atob(parts[0].replace(/-/g, '+').replace(/_/g, '/')));
+    return header.typ === 'JWT' && (header.alg === 'HS256' || header.alg === 'RS256');
+  } catch (e) {
+    return false;
+  }
+}
+
+// Helper function to check if JWT is expired
+function isJWTExpired(token) {
+  try {
+    const parts = token.split('.');
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    
+    // Check if token has expiration
+    if (payload.exp) {
+      const currentTime = Math.floor(Date.now() / 1000);
+      return payload.exp < currentTime;
+    }
+    
+    // If no expiration, consider it valid
+    return false;
+  } catch (e) {
+    return true; // If we can't parse, consider expired
+  }
+}
+
 router.beforeEach((to, from, next) => {
   // Check if the route requires authentication
   if (to.matched.some(record => record.meta.requiresAuth)) {
     const token = localStorage.getItem('token');
     
-    // Regex pattern to match the token
-    const regex = /^[A-Z0-9]{6}$/; // Simplified regex without quotes
-
-    // If the token is not valid, redirect to login
-    if (!token || !regex.test(token)) {
+    // Check if token is a valid JWT and not expired
+    if (!token || !isValidJWT(token) || isJWTExpired(token)) {
       next({
         path: '/login',
         query: { redirect: to.fullPath } // Save the intended route for after login

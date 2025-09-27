@@ -2,6 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import axios from 'axios'
 
+// Helper function to decode JWT token
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload;
+  } catch (e) {
+    return null;
+  }
+}
+
 export const useMainStore = defineStore('main', () => {
   const userName = ref(localStorage.getItem('username'))
   const userEmail = ref('doe.doe.doe@example.com')
@@ -32,6 +43,28 @@ export const useMainStore = defineStore('main', () => {
     if (payload.email) {
       userEmail.value = payload.email
     }
+  }
+
+  // Get user info from JWT token
+  function getUserFromJWT() {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    
+    const payload = decodeJWT(token);
+    if (!payload) return null;
+    
+    return {
+      userId: payload.user_id,
+      compId: payload.comp_id,
+      isAdmin: payload.is_admin,
+      username: localStorage.getItem('username')
+    };
+  }
+
+  // Check if current user is admin
+  function isCurrentUserAdmin() {
+    const userInfo = getUserFromJWT();
+    return userInfo ? userInfo.isAdmin : false;
   }
 
   function fetchSampleClients() {
@@ -96,6 +129,7 @@ export const useMainStore = defineStore('main', () => {
     const url = "http://localhost:5000/clients"
     const clientsPayload = {
       user_id: Number(localStorage.getItem('userId')),
+      token: localStorage.getItem('token')
     };
     axios
       .post(url, clientsPayload)
@@ -231,6 +265,8 @@ export const useMainStore = defineStore('main', () => {
     getCompanyCashFlow,
     deleteEmployee,
     editCommission,
-    calculateSalesRevenue
+    calculateSalesRevenue,
+    getUserFromJWT,
+    isCurrentUserAdmin
   }
 })
