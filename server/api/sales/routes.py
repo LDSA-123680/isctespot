@@ -13,7 +13,7 @@ def list_user_sales():
     is_valid, _payload = validate_token(dict_data.get('token'))
     if not is_valid:
         return jsonify({'status': 'Unauthorised'}), 403
-    results = dbc.execute_query(query='get_user_sales', args=dict_data['user_id'])
+    results = dbc.execute_query(query='get_user_sales', args=_payload['user_id'])
     ps = ProcessSales(results, dict_data['user_id'])
     ps.get_3_most_recent_sales()
     revenue = ps.revenue
@@ -31,7 +31,7 @@ def add_new_sale():
         return jsonify({'status': 'Unauthorised'}), 403
     result = dbc.execute_query(query='create_sale', args={
         'client_id': dict_data['client_id'],
-        'user_id': dict_data['user_id'],
+        'user_id': _payload['user_id'],
         'product_id': dict_data['product_id'],
         'quantity': dict_data['quantity']
     })

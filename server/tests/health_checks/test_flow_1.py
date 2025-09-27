@@ -4,9 +4,6 @@ import os
 
 base_url = 'http://127.0.0.1:5000'
 
-AUTH_TOKEN = 'W4N7CQ'
-ADMIN_AUTH_TOKEN = 'Z8V9LD'
-
 def test_output_status(status, text):
     if status == 'pass':
         print(f'\033[92m[PASS]\033[0m {text}')
@@ -22,7 +19,6 @@ login_url = f'{base_url}/login'
 login_payload = {'username': 'jdoe', 'password': 'password123'}
 login_response = requests.post(login_url, json=login_payload)
 login_data = login_response.json()
-print(login_data)
 user_id: int = 0
 token: str = ''
 if login_data['status'] == 'Ok':

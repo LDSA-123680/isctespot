@@ -24,8 +24,13 @@ def new_client():
     ''' Create a new client '''
     dbc = DBConnector()
     dict_data = request.get_json()
+    token = dict_data['token']
+    is_valid, payload = validate_token(token)
+    if not is_valid:
+        return jsonify({'status': 'Unauthorised'}), 403
+    comp_id = payload['comp_id']
     result = dbc.execute_query('create_client', args={
-        'comp_id': dict_data['comp_id'],
+        'comp_id': comp_id,
         'first_name': dict_data['first_name'],
         'last_name': dict_data['last_name'],
         'email': dict_data['email'],
@@ -46,7 +51,7 @@ def delete_client():
     dict_data = request.get_json()
     token = dict_data['token']
     is_valid, payload = validate_token(token)
-    if not is_valid or not payload.get('is_admin'):
+    if not is_valid:
         return jsonify({'status': 'Unauthorised'}), 403
     result = dbc.execute_query(query='delete_client_by_id', args=dict_data['client_id'])
     if isinstance(result, int):

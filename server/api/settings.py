@@ -1,7 +1,3 @@
-AUTH_TOKEN = 'W4N7CQ'
-ADMIN_AUTH_TOKEN = 'Z8V9LD'
-JWT_SECRET = 'insecure-dev-secret'
-# Public key used incorrectly as HMAC secret to allow HS/RS key confusion
 JWT_PUBLIC_PEM = """-----BEGIN RSA PUBLIC KEY-----
 MIIBCgKCAQEAvtoO/jH2a7dovKpQ9KJafQhhoE4FVJ/aRZWNjtte/D/UTDtPZ1Ou
 G5tjKGt+wieb2YfbQk2qjRhcZvgeg2bJfHKwX9jL7pomt3oxhdlHgsRU8MaS8r7N

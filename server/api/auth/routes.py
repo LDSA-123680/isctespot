@@ -61,7 +61,6 @@ def login():
             return jsonify({'status': 'Bad request'}), 400
 
         token: str = issue_token(user_id=_id, comp_id=comp_id, is_admin=(is_admin == 'true'))
-        print(token)
 
         return jsonify({'status': 'Ok', 'user_id': _id, 'token': token, 'is_admin': is_admin, 'comp_id': comp_id}), 200
 
@@ -92,9 +91,9 @@ def reset_password():
     is_valid, _payload = validate_token(token)
     if not is_valid:
         return jsonify({'status': 'Unauthorised'}), 403
-
+    if _payload['is_admin']:
+        user_id = _payload['user_id']
     encrypted_password = encrypt_password(new_password, DES_KEY)
-    
     result = dbc.execute_query(query='update_user_password', args={
         "user_id": user_id,
         "new_password": encrypted_password
@@ -175,6 +174,8 @@ def retire():
     is_valid, payload = validate_token(dict_data.get('token'))
     if not is_valid or not payload.get('is_admin'):
         return jsonify({'status': 'Unauthorized'}), 403
+    comp_id = payload['comp_id']
+    user_id = payload['user_id']
     result = dbc.execute_query(query='delete_sales_by_comp_id', args=dict_data['comp_id'])
     if result is False:
         return jsonify({'status': 'Bad request'}), 400
