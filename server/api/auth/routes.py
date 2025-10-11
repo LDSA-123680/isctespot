@@ -50,18 +50,22 @@ def login():
             'active': True
         })
         is_admin = dbc.execute_query(query='get_user_admin', args=_id)
+        is_agent = dbc.execute_query(query='get_user_agent', args=_id)
         print(f'Admin --> {is_admin}')
         if is_admin == 1:
-            is_admin = 'true'
+            is_admin = True
         else:
-            is_admin = 'false'
+            is_admin = False
+        if is_agent:
+            is_agent = True
+        else:
+            is_agent = False
 
         comp_id = dbc.execute_query(query='get_user_comp_id', args=_id)
-        is_agent = dbc.execute_query('get_user_agent', args=_id)
         if not isinstance(comp_id, int):
             return jsonify({'status': 'Bad request'}), 400
 
-        token: str = issue_token(user_id=_id, comp_id=comp_id, is_admin=(is_admin == 'true'))
+        token: str = issue_token(user_id=_id, comp_id=comp_id, is_admin=is_admin, is_agent=is_agent)
 
         return jsonify({'status': 'Ok', 'user_id': _id, 'token': token, 'is_admin': is_admin, 'comp_id': comp_id}), 200
 
@@ -135,7 +139,7 @@ def signup():
         'user_id': user_id,
         'comp_id': comp_id
     })
-    token: str = issue_token(user_id=user_id, comp_id=comp_id, is_admin=True)
+    token: str = issue_token(user_id=user_id, comp_id=comp_id, is_admin=True, is_agent=False)
     if isinstance(result, int):
         return jsonify(
             {

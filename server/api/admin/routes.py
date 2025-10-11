@@ -2,6 +2,7 @@ from flask import Blueprint, request, current_app, render_template, redirect, ur
 from db.db_connector import DBConnector
 import json
 import requests
+from api.auth.jwt_utils import validate_token
 
 admin = Blueprint('admin', __name__, template_folder='templates')
 
@@ -20,15 +21,17 @@ def login():
         login_payload = {'username': username, 'password': password}
         login_response = requests.post(login_url, json=login_payload)
         data = login_response.json()
-        user_id = data['user_id']
-        username = data['username']
+        print(f'Login response status code: {login_response.status_code}')
+        print(f'Login data: {data}')
+        token = data['token']
+        is_valid, payload = validate_token(token)
+        is_agent = payload.get('is_agent')
         if login_response.status_code != 200:
             return jsonify({'status': "Unauthorized"}), 403
-        if not data['is_agent']:
+        if not is_agent:
             return jsonify({'status': "Unauthorized"}), 403
         response = redirect(url_for('admin.view_tickets'))
-        session_token = current_app.config.get("AP_AUTH_TOKEN", "default_token")
-        response.set_cookie('session_token', f'{session_token}-{user_id}')
+        response.set_cookie('session_token', f'{token}')
         response.set_cookie('username', username)
         return response
     return render_template('login.html')
@@ -42,9 +45,12 @@ def logout():
 @admin.route('/ap/tickets')
 def view_tickets():
     dbc = DBConnector()
-    token = request.cookies.get('session_token').split('-')[0]
+    token = request.cookies.get('session_token')
+    is_valid, payload = validate_token(token)
+    if not is_valid:
+        return jsonify({'status': "Unauthorized"}), 403
     try:
-        if token != current_app.config['AP_AUTH_TOKEN']:
+        if not payload.get('is_agent'):
             return jsonify({'status': "Unauthorized"}), 403
         tickets = dbc.execute_query('get_agent_tickets')
         return render_template('tickets.html', tickets=tickets)
@@ -54,6 +60,10 @@ def view_tickets():
 @admin.route('/ap/ticket/<int:ticket_id>', methods=['GET', 'POST'])
 def ticket_detail(ticket_id):
     dbc = DBConnector()
+    token = request.cookies.get('session_token')
+    is_valid, payload = validate_token(token)
+    if not is_valid or not payload.get('is_agent'):
+        return jsonify({'status': "Unauthorized"}), 403
     # Get the ticket details
     result = dbc.execute_query('get_ticket_by_id', args=ticket_id)
     user_id = result['UserID']
@@ -80,6 +90,10 @@ def ticket_detail(ticket_id):
 def new_agent_message(ticket_id):
     dbc = DBConnector()
     ## Check if request comes from trusted connection
+    token = request.cookies.get('session_token')
+    is_valid, payload = validate_token(token)
+    if not is_valid or not payload.get('is_agent'):
+        return jsonify({'status': "Unauthorized"}), 403
     cookies = request.cookies
     message = request.form['message']
     result = dbc.execute_query('update_ticket_messages', args={
@@ -94,7 +108,6 @@ def new_agent_message(ticket_id):
         result['Messages'] = json.loads(result['Messages'])
     return redirect(url_for('admin.ticket_detail', ticket_id=ticket_id))
 
-
 ########################################################
 ###             User support endpoints               ###
 ########################################################
@@ -105,10 +118,12 @@ def new_ticket():
     dict_data = request.get_json()
     print('\n')
     print(dict_data)
+    token = dict_data['token']
+    is_valid, payload = validate_token(token)
+    if not is_valid:
+        return jsonify({'status': "Unauthorized"}), 403
     if dict_data['category'] not in ['Technical Issue', 'Billing', 'Question', 'Feature Request']:
         return jsonify({'status': "Bad request"}), 400
-    if dict_data['token'] != current_app.config['ADMIN_AUTH_TOKEN'] and dict_data['token'] != current_app.config['AUTH_TOKEN']:
-        return jsonify({'status': "Unauthorized"}), 403
     ticket = {
         'user_id': dict_data['user_id'],
         'category': dict_data['category'],
@@ -127,16 +142,17 @@ def tickets():
     dbc = DBConnector()
     dict_data = request.get_json()
     results = None
-    if dict_data['token'] == current_app.config['ADMIN_AUTH_TOKEN'] or dict_data['token'] == current_app.config['AUTH_TOKEN']:
-        if dict_data['token'] == current_app.config['AUTH_TOKEN']:
-            results = dbc.execute_query('get_user_tickets', args=dict_data['user_id'])
-        if dict_data['token'] == current_app.config['ADMIN_AUTH_TOKEN']:
-            results = dbc.execute_query('get_admin_tickets', args=dict_data['company_id'])
-        if isinstance(results, list):
-            return jsonify({'status': 'Ok', 'tickets': results}), 200
-        return jsonify({'status': 'Bad request'}), 400
-
-    return jsonify({'status': 'Unauthorized'}), 403
+    token = dict_data['token']
+    is_valid, payload = validate_token(token)
+    if not is_valid or payload.get('is_agent'):
+        return jsonify({'status': 'Unauthorized'}), 403
+    if not payload.get('is_admin'):
+        results = dbc.execute_query('get_user_tickets', args=dict_data['user_id'])
+    if payload.get('is_admin'):
+        results = dbc.execute_query('get_admin_tickets', args=dict_data['company_id'])
+    if isinstance(results, list):
+        return jsonify({'status': 'Ok', 'tickets': results}), 200
+    return jsonify({'status': 'Bad request'}), 400
 
 @admin.route('/support/ticket/<int:ticket_id>', methods=['GET', 'POST'])
 def user_ticket_detail(ticket_id):
@@ -174,4 +190,3 @@ def new_message(ticket_id):
         return jsonify({'status': 'Ok'}), 200
     else:
         return jsonify({'status': 'Bad request'}), 400
-

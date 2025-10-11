@@ -4,9 +4,6 @@ import os
 
 base_url = 'http://127.0.0.1:5000'
 
-AUTH_TOKEN = 'W4N7CQ'
-ADMIN_AUTH_TOKEN = 'Z8V9LD'
-
 def test_output_status(status, text):
     if status == 'pass':
         print(f'\033[92m[PASS]\033[0m {text}')
@@ -22,6 +19,7 @@ login_url = f'{base_url}/login'
 login_payload = {'username': 'jdoe', 'password': 'password123'}
 login_response = requests.post(login_url, json=login_payload)
 login_data = login_response.json()
+token = login_data['token']
 user_id = 0
 if login_data['status'] == 'Ok':
     test_output_status('pass', 'Login successful')
@@ -29,27 +27,40 @@ if login_data['status'] == 'Ok':
 else:
     test_output_status('fail', 'Failed to Login user')
 
-# Admin gets support tickets
+# Admin login
+test_output_status('info', 'Testing Agent authentication')
+agent_login_url = f'{base_url}/login'
+agent_login_payload = {'username': 'adam@isctespot', 'password': 'password123'}
+agent_login_response = requests.post(agent_login_url, json=agent_login_payload)
+agent_login_data = agent_login_response.json()
+agent_token = agent_login_data['token']
+if agent_login_data['status'] == 'Ok':
+    test_output_status('pass', 'Agent login successful')
+else:
+    test_output_status('fail', 'Failed to Agent login')
+
+# Company Admin gets support tickets
 test_output_status('info', 'Testing User getting support tickets')
 get_support_tickets_url = f'{base_url}/support/tickets'
 get_support_tickets_payload = {
     'user_id': user_id,
     'company_id': 1,
-    'token': ADMIN_AUTH_TOKEN,
+    'token': token,
 }
 get_support_tickets_response = requests.post(get_support_tickets_url, json=get_support_tickets_payload)
 get_support_tickets_data = get_support_tickets_response.json()
 if get_support_tickets_data['status'] == 'Ok':
-    test_output_status('pass', 'Get admin tickets successful')
+    test_output_status('pass', 'Get company admin tickets successful')
 else:
-    test_output_status('fail', 'Failed to get admin tickets')
+    test_output_status('fail', 'Failed to get company admin tickets')
 
-# User gets support tickets (returns empty list)
+# Company User gets support tickets (returns empty list)
 test_output_status('info', 'Testing User getting support tickets')
 get_support_tickets_url = f'{base_url}/support/tickets'
 get_support_tickets_payload = {
-    'user_id': 2,       # asmith
-    'token': AUTH_TOKEN,
+    'user_id': 2,  
+    'company_id': 1, # asmith
+    'token': token,
 }
 get_support_tickets_response = requests.post(get_support_tickets_url, json=get_support_tickets_payload)
 get_support_tickets_data = get_support_tickets_response.json()
@@ -63,7 +74,7 @@ test_output_status('info', 'Testing User creating a new ticket')
 new_ticket_url = f'{base_url}/support/new-ticket'
 new_ticket_payload = {
     'user_id': 2,       # asmith
-    'token': AUTH_TOKEN,
+    'token': token,
     'category': 'Question',
     'status': 'Waiting for Support',
     'description': 'This is a test'
@@ -109,7 +120,8 @@ test_output_status('info', 'Testing Agent comment on ticket')
 agent_message_url = f'{base_url}/support/ticket/{ticket_id}/new-message'
 agent_message_payload = {
     'user_id': 17,
-    'message': 'This is a test message from agent'
+    'message': 'This is a test message from agent',
+    'token': agent_token
 }
 agent_message_response = requests.post(agent_message_url, json=agent_message_payload)
 agent_message_data = agent_message_response.json()

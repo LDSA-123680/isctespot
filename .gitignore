@@ -21,4 +21,18 @@
 
 # Ignore venv
 venv
+venv39
 .venv
+
+# Ignore e2e tests
+test_e2e_*.py
+
+# Ignore pycache
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw

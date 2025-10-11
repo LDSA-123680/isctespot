@@ -76,6 +76,8 @@ class DBConnector:
             if query == 'get_user_by_name':
                 cursor.execute("SELECT UserID FROM Users WHERE Username = ?", (args,))
                 result = cursor.fetchone()
+                print("Result: ")
+                print(result)
                 try:
                     if isinstance(result, tuple):
                         result = result[0]['UserID']
