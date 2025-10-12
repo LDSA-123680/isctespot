@@ -9,7 +9,6 @@
   <p align="center">
     A Damn vulnerable SaaS application for ISCTE - Software and Application Security
     <br />
-    <a href="https://github.com/othneildrew/Best-README-Template"><strong>Explore the docs »</strong></a>
     <br />
   </p>
 </div>
