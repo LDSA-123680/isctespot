@@ -1,4 +1,5 @@
 import mariadb
+import os
 from fakes.fake_users import data as fake_users
 from fakes.fake_companies import data as fake_companies
 from fakes.fake_clients import data as fake_clients
@@ -7,13 +8,12 @@ from fakes.fake_sales import data as fake_sales
 from fakes.fake_tickets import data as fake_tickets
 import random
 
-# Database connection
 db = mariadb.connect(
-    host="localhost",
-    user="root",
-    password="teste123",
-    port=3306,
-    database="iscte_spot"
+    host=os.getenv("DB_HOST", "mariadb"),
+    port=int(os.getenv("DB_PORT", "3306")),
+    user=os.getenv("DB_USER", "root"),
+    password=os.getenv("DB_PASSWORD", os.getenv("MARIADB_ROOT_PASSWORD", "teste123")),
+    database=os.getenv("DB_NAME", "iscte_spot"),
 )
 
 cursor = db.cursor()

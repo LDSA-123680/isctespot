@@ -1,11 +1,13 @@
 import mariadb
+import os
 
 # Establish a connection to the MariaDB database
 db = mariadb.connect(
-    host="localhost",
-    user="root",
-    password="teste123",
-    database="iscte_spot"
+    host=os.getenv("DB_HOST", "mariadb"),
+    port=int(os.getenv("DB_PORT", "3306")),
+    user=os.getenv("DB_USER", "root"),
+    password=os.getenv("DB_PASSWORD", os.getenv("MARIADB_ROOT_PASSWORD", "teste123")),
+    database=os.getenv("DB_NAME", "iscte_spot"),
 )
 
 cursor = db.cursor()

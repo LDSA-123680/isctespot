@@ -1,36 +1,37 @@
-version: '3.8'
-
 services:
-  frontend:
-    build: ./frontend/admin-one-vue-tailwind-master
-    ports:
-      - "5173:5173"
-    depends_on:
-      - server
+  mariadb:
+    image: mariadb:10.6
+    environment:
+      MARIADB_ROOT_PASSWORD: teste123
+      MARIADB_DATABASE: iscte_spot
+    volumes:
+      - db_data:/var/lib/mysql
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-pteste123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   server:
-    build: ./server
+    build:
+      context: ./server
+    depends_on:
+      mariadb:
+        condition: service_healthy
     ports:
       - "5000:5000"
-    environment:
-      - FLASK_ENV=development
-    depends_on:
-      - mariadb
     networks:
       - app-network
 
-  mariadb:
-    image: mariadb:latest
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: teste123
-      MYSQL_DATABASE: iscte_spot
+  frontend:
+    build:
+      context: ./frontend/admin-one-vue-tailwind-master
+    depends_on:
+      - server
     ports:
-      - "3306:3306"
-    volumes:
-      - ./data:/var/lib/mysql
+      - "5173:5173"
     networks:
       - app-network
 

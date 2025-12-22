@@ -1,7 +1,8 @@
+import os
 import mariadb
 
 connection = mariadb.connect(
-    host="localhost",
+    host=os.getenv('DB_HOST', 'mariadb'),
     user="root",
     password="teste123",
     port=3306
@@ -9,15 +10,10 @@ connection = mariadb.connect(
 
 cursor = connection.cursor()
 try:
-
-    # Create the database if it doesn't exist
     cursor.execute("CREATE DATABASE IF NOT EXISTS iscte_spot;")
     print("Database 'iscte_spot' created or already exists.")
-
-    # Switch to the newly created database
     cursor.execute("USE iscte_spot;")
 
-    # SQL statements to create the tables
     create_tables_sql = """
     CREATE TABLE IF NOT EXISTS Users (
         UserID INT(11) NOT NULL AUTO_INCREMENT,
@@ -44,6 +40,7 @@ try:
 
     CREATE TABLE IF NOT EXISTS Companies (
         CompanyID INT(11) NOT NULL AUTO_INCREMENT,
+        FastPayCustomerID INT(11) NULL DEFAULT NULL,
         AdminUserID INT(11) NOT NULL,
         NumberOfEmployees INT(11) NULL DEFAULT NULL,
         Revenue INT(11) NULL DEFAULT NULL,
@@ -79,7 +76,7 @@ try:
         ProductID INT(11) NOT NULL AUTO_INCREMENT,
         CompanyID INT(11) NOT NULL,
         ProductName VARCHAR(255) NOT NULL COLLATE 'latin1_swedish_ci',
-        Category VARCHAR(100) NULL DEFAULT NULL COLLATE 'latin1_swedish_ci',  -- New field for product category
+        Category VARCHAR(100) NULL DEFAULT NULL COLLATE 'latin1_swedish_ci',
         FactoryPrice DECIMAL(10,2) NOT NULL,
         SellingPrice DECIMAL(10,2) NOT NULL,
         CreatedAt TIMESTAMP NULL DEFAULT current_timestamp(),
@@ -90,7 +87,7 @@ try:
     COLLATE='latin1_swedish_ci'
     ENGINE=InnoDB
     AUTO_INCREMENT=1;
-    
+
     CREATE TABLE IF NOT EXISTS Sales (
         SaleID INT(11) NOT NULL AUTO_INCREMENT,
         UserID INT(11) NULL,
@@ -109,10 +106,51 @@ try:
     COLLATE='latin1_swedish_ci'
     ENGINE=InnoDB
     AUTO_INCREMENT=1;
-    
+
+    CREATE TABLE IF NOT EXISTS PaymentAccounts (
+        UserID INT(11) NOT NULL,
+        BankAccountNumber VARCHAR(34) NOT NULL,
+        BankIdentifierCode VARCHAR(20) NOT NULL,
+        CreatedAt TIMESTAMP NULL DEFAULT current_timestamp(),
+        PRIMARY KEY (UserID)
+    );
+
+    CREATE TABLE IF NOT EXISTS CompanyCards (
+        CompanyID INT(11) NOT NULL,
+        FastPayCustomerID INT(11) NULL DEFAULT NULL,
+        CardToken VARCHAR(128) NOT NULL,
+        Last4 VARCHAR(4) NOT NULL,
+        ExpiryDate VARCHAR(10) NOT NULL,
+        CardType VARCHAR(20) NOT NULL,
+        BankIdentifierCode VARCHAR(20) NOT NULL,
+        CreatedAt TIMESTAMP NULL DEFAULT current_timestamp(),
+        PRIMARY KEY (CompanyID)
+    );
+
+    CREATE TABLE IF NOT EXISTS PaymentSchedules (
+        CompanyID INT(11) NOT NULL,
+        FrequencyType VARCHAR(10) NOT NULL,
+        BonusPercentage FLOAT NOT NULL DEFAULT 0,
+        Enabled TINYINT(1) NOT NULL DEFAULT 1,
+        UpdatedAt TIMESTAMP NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+        PRIMARY KEY (CompanyID)
+    );
+
+    CREATE TABLE IF NOT EXISTS PaymentAudit (
+        AuditID INT(11) NOT NULL AUTO_INCREMENT,
+        CompanyID INT(11) NOT NULL,
+        AdminUserID INT(11) NOT NULL,
+        Action VARCHAR(20) NOT NULL,
+        RequestID VARCHAR(64) NOT NULL,
+        Status VARCHAR(20) NOT NULL,
+        Details TEXT NULL,
+        CreatedAt TIMESTAMP NULL DEFAULT current_timestamp(),
+        PRIMARY KEY (AuditID)
+    );
+
     CREATE TABLE IF NOT EXISTS SupportTickets (
         TicketID INT(11) NOT NULL AUTO_INCREMENT,
-        UserID INT(11) NULL,  -- Allow NULLs for ON DELETE SET NULL
+        UserID INT(11) NULL,
         Status VARCHAR(50) NOT NULL COLLATE 'latin1_swedish_ci',
         Category VARCHAR(100) NOT NULL COLLATE 'latin1_swedish_ci',
         Description LONGTEXT NOT NULL COLLATE 'latin1_swedish_ci',
@@ -121,10 +159,10 @@ try:
         UpdatedAt TIMESTAMP NULL DEFAULT NULL ON UPDATE current_timestamp(),
         PRIMARY KEY (TicketID) USING BTREE,
         INDEX UserID (UserID) USING BTREE,
-        CONSTRAINT supporttickets_ibfk_1 
-            FOREIGN KEY (UserID) 
-            REFERENCES Users (UserID) 
-            ON UPDATE RESTRICT 
+        CONSTRAINT supporttickets_ibfk_1
+            FOREIGN KEY (UserID)
+            REFERENCES Users (UserID)
+            ON UPDATE RESTRICT
             ON DELETE SET NULL
     )
     COLLATE='latin1_swedish_ci'
@@ -132,7 +170,6 @@ try:
     AUTO_INCREMENT=1;
     """
 
-    # Executing the SQL statements
     for statement in create_tables_sql.split(';'):
         if statement.strip():
             cursor.execute(statement)
