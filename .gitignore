@@ -11,6 +11,10 @@
 !setup.ps1
 !setup.sh
 
+# keys generated at runtime (never commit private keys)
+server/keys/
+*.pem
+
 # Ignore any files within the tracked directories
 !.github/**
 !frontend/**
