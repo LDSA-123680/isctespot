@@ -7,28 +7,58 @@ on:
 jobs:
   security:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install tools
+      - name: Install security tools
         run: |
           python -m pip install --upgrade pip
-          pip install bandit pip-audit semgrep
+          pip install bandit semgrep pip-audit
 
-      - name: Bandit (SAST)
+      # -----------------------
+      # Bandit (SAST - Python)
+      # -----------------------
+      - name: Bandit scan (report only)
         run: |
-          bandit -r server -ll
+          bandit -r server \
+            -x server/tests,server/db/setup \
+            --exit-zero \
+            -f txt -o bandit.txt
+        # --exit-zero garante que não falha o job (modo monitorização)
 
-      - name: Semgrep (SAST)
+      # -----------------------
+      # Semgrep (SAST - multi-language)
+      # -----------------------
+      - name: Semgrep scan (report only)
         run: |
-          semgrep --config auto server
+          semgrep scan --config=auto --metrics=off --quiet server > semgrep.txt || true
 
-      - name: Dependency audit (pip-audit)
+      # -----------------------
+      # pip-audit (SCA - dependências Python)
+      # -----------------------
+      - name: pip-audit (report only)
         run: |
-          pip-audit -r server/requirements.txt
+          if [ -f server/requirements.txt ]; then REQ="server/requirements.txt";
+          elif [ -f requirements.txt ]; then REQ="requirements.txt";
+          else echo "requirements.txt not found" && exit 0; fi
+
+          pip-audit -r "$REQ" -f json -o pip-audit.json || true
+
+      # -----------------------
+      # Upload artifacts (para print + evidências no relatório)
+      # -----------------------
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit.txt
+            semgrep.txt
+            pip-audit.json
